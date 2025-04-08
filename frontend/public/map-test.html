@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet Test Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin="anonymous"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin="anonymous"></script>
+     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var map = L.map('map').setView([18.5204, 73.8567], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Add a marker for reference
+            L.marker([18.5204, 73.8567]).addTo(map)
+                .bindPopup('Pune City Center')
+                .openPopup();
+                
+            // Add a debug message
+            var debugDiv = document.createElement('div');
+            debugDiv.style.position = 'absolute';
+            debugDiv.style.zIndex = '1000';
+            debugDiv.style.top = '10px';
+            debugDiv.style.left = '10px';
+            debugDiv.style.padding = '10px';
+            debugDiv.style.backgroundColor = 'white';
+            debugDiv.style.border = '1px solid #ccc';
+            debugDiv.innerHTML = 'Map is visible at coordinates: 18.5204, 73.8567';
+            document.body.appendChild(debugDiv);
+        });
+    </script>
+</body>
+</html> 

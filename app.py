@@ -69,6 +69,13 @@ class Route(RouteBase):
     class Config:
         orm_mode = True
 
+class RouteRequest(BaseModel):
+    from_stop: int
+    to_stop: int
+
+    class Config:
+        from_attributes = True  # New Pydantic V2 syntax for orm_mode
+
 class DriverBase(BaseModel):
     name: str
     status: str = "off_duty"
@@ -115,9 +122,8 @@ async def update_crowd_density(db: Session):
         try:
             stops = db.query(models.BusStop).all()
             for stop in stops:
-                new_density = crowd_simulator.simulate_density(
-                    stop.base_demand,
-                    datetime.now().hour
+                new_density = crowd_simulator.get_current_density(
+                    stop.id
                 )
                 stop.current_density = new_density
                 db.commit()
@@ -171,10 +177,85 @@ def create_driver(driver: DriverCreate, db: Session = Depends(get_db)):
     return db_driver
 
 @app.post("/route")
-async def find_route(from_stop: int, to_stop: int, db: Session = Depends(get_db)):
+async def find_route(route_request: RouteRequest, db: Session = Depends(get_db)):
     try:
-        route = bus_routing_system.find_optimal_route(from_stop, to_stop)
-        return route
+        # Get all active routes
+        all_routes = db.query(models.Route).filter(models.Route.is_active == True).all()
+        
+        # Get the stops
+        from_stop_obj = db.query(models.BusStop).filter(models.BusStop.id == route_request.from_stop).first()
+        to_stop_obj = db.query(models.BusStop).filter(models.BusStop.id == route_request.to_stop).first()
+        
+        if not from_stop_obj or not to_stop_obj:
+            raise HTTPException(status_code=404, detail="Stop not found")
+        
+        # Find all possible routes between the stops
+        possible_routes = []
+        for route in all_routes:
+            route_stops = route.stops
+            if route_request.from_stop in route_stops and route_request.to_stop in route_stops:
+                # Calculate route metrics
+                from_idx = route_stops.index(route_request.from_stop)
+                to_idx = route_stops.index(route_request.to_stop)
+                
+                # Get the stops in the correct order
+                if from_idx < to_idx:
+                    route_stops = route_stops[from_idx:to_idx + 1]
+                else:
+                    route_stops = route_stops[to_idx:from_idx + 1]
+                    route_stops.reverse()
+                
+                # Calculate total crowd density and demand along the route
+                total_density = 0
+                total_demand = 0
+                stop_details = []
+                
+                for stop_id in route_stops:
+                    stop = db.query(models.BusStop).filter(models.BusStop.id == stop_id).first()
+                    total_density += stop.current_density
+                    total_demand += stop.base_demand
+                    stop_details.append({
+                        "id": stop.id,
+                        "name": stop.name,
+                        "density": stop.current_density,
+                        "demand": stop.base_demand
+                    })
+                
+                # Calculate route score based on both density and demand
+                avg_density = total_density / len(route_stops)
+                avg_demand = total_demand / len(route_stops)
+                
+                # Lower score is better - prioritize routes with high demand but manageable density
+                route_score = avg_density / (avg_demand + 1)  # Add 1 to avoid division by zero
+                
+                possible_routes.append({
+                    "route_id": route.id,
+                    "name": route.name,
+                    "stops": route_stops,
+                    "stop_details": stop_details,
+                    "total_distance": route.total_distance,
+                    "estimated_time": route.estimated_time,
+                    "avg_density": avg_density,
+                    "avg_demand": avg_demand,
+                    "route_score": route_score
+                })
+        
+        if not possible_routes:
+            raise HTTPException(status_code=404, detail="No route found between the specified stops")
+        
+        # Sort routes by score (lower is better) and return the best one
+        best_route = min(possible_routes, key=lambda x: x["route_score"])
+        
+        return {
+            "route": best_route,
+            "from_stop": from_stop_obj.name,
+            "to_stop": to_stop_obj.name,
+            "total_stops": len(best_route["stops"]),
+            "estimated_time": best_route["estimated_time"],
+            "crowd_score": best_route["avg_density"],
+            "demand_score": best_route["avg_demand"],
+            "route_score": best_route["route_score"]
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

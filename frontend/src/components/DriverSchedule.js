@@ -15,11 +15,19 @@ import {
   Card,
   CardContent,
   CardActions,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider
 } from '@mui/material';
 import {
-  DirectionsBus as BusIcon,
-  AccessTime as TimeIcon,
-  LocationOn as LocationIcon,
+  DirectionsBus,
+  AccessTime,
+  LocationOn,
+  Person,
+  CheckCircle,
+  Cancel
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -29,23 +37,23 @@ const DriverSchedule = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [driversResponse, routesResponse] = await Promise.all([
-          axios.get('http://localhost:8000/drivers'),
-          axios.get('http://localhost:8000/routes'),
-        ]);
-        setDrivers(driversResponse.data);
-        setRoutes(routesResponse.data);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-
     fetchData();
   }, []);
 
-  const assignDrivers = async () => {
+  const fetchData = async () => {
+    try {
+      const [driversRes, routesRes] = await Promise.all([
+        axios.get('http://localhost:8000/drivers'),
+        axios.get('http://localhost:8000/routes')
+      ]);
+      setDrivers(driversRes.data);
+      setRoutes(routesRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  const handleAssignDrivers = async () => {
     setLoading(true);
     try {
       const response = await axios.post('http://localhost:8000/assign-drivers');
@@ -56,13 +64,16 @@ const DriverSchedule = () => {
     setLoading(false);
   };
 
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
+  const getRouteName = (routeId) => {
+    const route = routes.find(r => r.id === routeId);
+    return route ? route.name : 'Unknown Route';
+  };
+
+  const getDriverStatusColor = (status) => {
+    switch (status) {
       case 'active':
         return 'success';
-      case 'on break':
-        return 'warning';
-      case 'off duty':
+      case 'off_duty':
         return 'error';
       default:
         return 'default';
@@ -70,144 +81,131 @@ const DriverSchedule = () => {
   };
 
   return (
-    <Grid container spacing={3}>
-      {/* Overview Cards */}
-      <Grid item xs={12}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <BusIcon sx={{ mr: 1 }} />
-                  <Typography variant="h6">Total Drivers</Typography>
-                </Box>
-                <Typography variant="h4">{drivers.length}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <TimeIcon sx={{ mr: 1 }} />
-                  <Typography variant="h6">Active Routes</Typography>
-                </Box>
-                <Typography variant="h4">
-                  {drivers.filter((d) => d.status === 'active').length}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <LocationIcon sx={{ mr: 1 }} />
-                  <Typography variant="h6">Total Routes</Typography>
-                </Box>
-                <Typography variant="h4">{routes.length}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+    <Box sx={{ p: 3 }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h5">Driver Schedule</Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleAssignDrivers}
+                  disabled={loading}
+                >
+                  {loading ? 'Assigning...' : 'Assign Drivers'}
+                </Button>
+              </Box>
+
+              <List>
+                {drivers.map((driver, index) => (
+                  <React.Fragment key={driver.id}>
+                    <ListItem>
+                      <ListItemIcon>
+                        <Person />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Typography variant="subtitle1">{driver.name}</Typography>
+                            <Chip
+                              label={driver.status}
+                              color={getDriverStatusColor(driver.status)}
+                              size="small"
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box sx={{ mt: 1 }}>
+                            {driver.current_route_id ? (
+                              <>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                  <DirectionsBus fontSize="small" />
+                                  <Typography variant="body2">
+                                    Current Route: {getRouteName(driver.current_route_id)}
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <AccessTime fontSize="small" />
+                                  <Typography variant="body2">
+                                    Hours Today: {driver.hours_today.toFixed(1)}
+                                  </Typography>
+                                </Box>
+                              </>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                No route assigned
+                              </Typography>
+                            )}
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {index < drivers.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>Active Routes</Typography>
+              <List>
+                {routes.filter(route => route.is_active).map((route, index) => {
+                  const assignedDriver = drivers.find(d => d.current_route_id === route.id);
+                  return (
+                    <React.Fragment key={route.id}>
+                      <ListItem>
+                        <ListItemIcon>
+                          <DirectionsBus />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={route.name}
+                          secondary={
+                            <Box sx={{ mt: 1 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                <LocationOn fontSize="small" />
+                                <Typography variant="body2">
+                                  {route.stops.length} stops
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <AccessTime fontSize="small" />
+                                <Typography variant="body2">
+                                  {route.estimated_time} minutes
+                                </Typography>
+                              </Box>
+                              {assignedDriver && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                                  <Person fontSize="small" />
+                                  <Typography variant="body2">
+                                    Driver: {assignedDriver.name}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                          }
+                        />
+                        <Chip
+                          icon={assignedDriver ? <CheckCircle /> : <Cancel />}
+                          label={assignedDriver ? 'Assigned' : 'Unassigned'}
+                          color={assignedDriver ? 'success' : 'error'}
+                        />
+                      </ListItem>
+                      {index < routes.filter(r => r.is_active).length - 1 && <Divider />}
+                    </React.Fragment>
+                  );
+                })}
+              </List>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
-
-      {/* Driver Schedule Table */}
-      <Grid item xs={12}>
-        <Paper sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="h6">Driver Schedule</Typography>
-            <Button
-              variant="contained"
-              onClick={assignDrivers}
-              disabled={loading}
-            >
-              {loading ? 'Assigning...' : 'Auto-Assign Drivers'}
-            </Button>
-          </Box>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Driver ID</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Current Route</TableCell>
-                  <TableCell>Next Break</TableCell>
-                  <TableCell>Total Hours Today</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {drivers.map((driver) => (
-                  <TableRow key={driver.id}>
-                    <TableCell>{driver.id}</TableCell>
-                    <TableCell>{driver.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={driver.status}
-                        color={getStatusColor(driver.status)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {driver.current_route ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <BusIcon sx={{ mr: 1, fontSize: 16 }} />
-                          {driver.current_route}
-                        </Box>
-                      ) : (
-                        'Not Assigned'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {driver.next_break
-                        ? new Date(driver.next_break).toLocaleTimeString()
-                        : 'No break scheduled'}
-                    </TableCell>
-                    <TableCell>{driver.hours_today.toFixed(1)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      </Grid>
-
-      {/* Break Schedule */}
-      <Grid item xs={12}>
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Break Schedule
-          </Typography>
-          <Grid container spacing={2}>
-            {drivers.map((driver) => (
-              <Grid item xs={12} sm={6} md={4} key={driver.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="subtitle1">{driver.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      ID: {driver.id}
-                    </Typography>
-                  </CardContent>
-                  <CardActions>
-                    {driver.break_slots?.map((slot, index) => (
-                      <Chip
-                        key={index}
-                        label={`${new Date(slot.start).toLocaleTimeString()} - ${new Date(
-                          slot.end
-                        ).toLocaleTimeString()}`}
-                        size="small"
-                        sx={{ mr: 1 }}
-                      />
-                    ))}
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Paper>
-      </Grid>
-    </Grid>
+    </Box>
   );
 };
 

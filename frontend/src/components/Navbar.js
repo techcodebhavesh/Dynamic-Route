@@ -12,6 +12,7 @@ import {
   Map as MapIcon,
   People as PeopleIcon,
   Schedule as ScheduleIcon,
+  LocationOn as LocationIcon
 } from '@mui/icons-material';
 
 const Navbar = () => {
@@ -65,6 +66,23 @@ const Navbar = () => {
             startIcon={<PeopleIcon />}
           >
             Crowd Simulator
+          </Button>
+          <Button
+            color="inherit"
+            component={RouterLink}
+            to="/test-map"
+            startIcon={<LocationIcon />}
+          >
+            Test Map
+          </Button>
+          <Button
+            color="inherit"
+            component={RouterLink}
+            to="/map-test"
+            startIcon={<LocationIcon />}
+            sx={{ backgroundColor: 'secondary.main', color: 'white' }}
+          >
+            MAP TEST
           </Button>
         </Box>
       </Toolbar>

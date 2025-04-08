@@ -11,6 +11,8 @@ import Dashboard from './components/Dashboard';
 import RoutePlanner from './components/RoutePlanner';
 import DriverSchedule from './components/DriverSchedule';
 import CrowdSimulator from './components/CrowdSimulator';
+import SimpleMap from './components/SimpleMap';
+import MapTest from './components/MapTest';
 
 // Create theme
 const theme = createTheme({
@@ -31,12 +33,14 @@ function App() {
       <Router>
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <Navbar />
-          <Container component="main" sx={{ mt: 4, mb: 4, flex: 1 }}>
+          <Container component="main" sx={{ mt: 4, mb: 4, flex: 1, maxWidth: '100%' }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/route-planner" element={<RoutePlanner />} />
               <Route path="/driver-schedule" element={<DriverSchedule />} />
               <Route path="/crowd-simulator" element={<CrowdSimulator />} />
+              <Route path="/test-map" element={<SimpleMap />} />
+              <Route path="/map-test" element={<MapTest />} />
             </Routes>
           </Container>
         </Box>
